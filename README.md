@@ -4,7 +4,7 @@
 
 ![Tela de título](docs/img/titulo.png)
 
-**▶ Jogar online:** `https://SEU-USUARIO.github.io/NOME-DO-REPOSITORIO/` *(veja [Publicação](#-publicação-no-github-pages))*
+**▶ Jogar online:** [pedrohrlima.github.io/spray-n-skate](https://pedrohrlima.github.io/spray-n-skate/) · **📦 Repositório:** [github.com/PedrohrLima/spray-n-skate](https://github.com/PedrohrLima/spray-n-skate)
 
 ---
 
@@ -130,8 +130,8 @@ No título há três botões: **FASES**, **ARCADE** e **MENU**. No MENU ficam as
 Pré-requisito: **[Node.js](https://nodejs.org) 18 ou superior**.
 
 ```bash
-git clone https://github.com/SEU-USUARIO/NOME-DO-REPOSITORIO.git
-cd NOME-DO-REPOSITORIO
+git clone https://github.com/PedrohrLima/spray-n-skate.git
+cd spray-n-skate
 npm install
 npm run dev        # abre em http://localhost:5173
 ```
@@ -153,7 +153,7 @@ O repositório já inclui o workflow `.github/workflows/pages.yml`:
 1. Envie o código para a branch `main`.
 2. No GitHub: **Settings → Pages → Build and deployment → Source: GitHub Actions**.
 3. Aguarde o workflow terminar (aba **Actions**). O link aparece no próprio workflow e em *Settings → Pages*.
-4. Cole o link no topo deste README.
+4. O jogo fica em **https://pedrohrlima.github.io/spray-n-skate/** (o mesmo link do topo deste README).
 
 ### 🔧 Atalhos para testes e apresentação
 
@@ -226,11 +226,10 @@ spray-n-skate/
 
 | Nome | Áreas do projeto |
 |---|---|
-| Pedro Henrique Rocha Lima | coordenação, arquitetura (`Director`, `config`, boot), README e repositório |
-| Lucas Lopes | skatista, obstáculos, itens, efeitos visuais e áudio |
-| Pedro Henrique Paixão | cenários das cidades, paleta de cores, túneis de chegada e logo |
-| Lucas Sad | interface: título, seleção de fases, menu, HUD, relatório e progresso salvo |
-| Pedro Ciampi | cutscene, personagens, polícia, publicação (GitHub Pages) e roteiro de apresentação |
+| Pedro Henrique Rocha Lima | coordenação e arquitetura (`Director`, `config`, boot), título, seleção de fases, menu, progresso salvo, publicação (GitHub Pages) e README |
+| Lucas Lopes | skatista, obstáculos, HUD, itens, efeitos visuais e áudio |
+| Pedro Henrique Paixão | cenários das cidades, paleta de cores, túneis de chegada, logo e relatório da fase |
+| Pedro Ciampi | cutscene, personagens, polícia no tombo e roteiro de apresentação |
 
 Trabalho final — Desenvolvimento de Games.
 

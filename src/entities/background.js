@@ -34,7 +34,7 @@ function makeSkyline(seed, minW, maxW, minH, maxH, windows) {
 }
 
 export class Background extends me.Renderable {
-  @param level 
+  /** @param level fase que define as paletas do cenário (DEMO = ciclo completo, para os menus) */
   constructor(level = DEMO) {
     super(0, 0, W, H);
     this.level = level;
@@ -43,6 +43,8 @@ export class Background extends me.Renderable {
     this.scroll = 0;
     this.time = 0;
     this.pal = paletteAt(level, 0);
+    // fases com cidade própria (Los Angeles, Miami, Nova York) usam camadas pré-renderizadas; o Arcade e os menus
+    // continuam com o cenário original
     this.city = level.city ? new City(level.city, level.keys.length) : null;
     this.far = makeSkyline(11, 50, 120, 70, 210, false);
     this.near = makeSkyline(29, 90, 170, 130, 300, true);
@@ -52,7 +54,7 @@ export class Background extends me.Renderable {
     this.speed = 0;
   }
 
-   @param dist 
+  /** @param dist distância percorrida em px (define a paleta/zona) */
   tick(dt, speed, dist) {
     this.time += dt;
     this.speed = speed;
@@ -66,12 +68,14 @@ export class Background extends me.Renderable {
 
   draw(r) {
     const p = this.pal;
+    // ---- céu em faixas
     const bands = 28;
     const bh = Math.ceil((GROUND_Y + 10) / bands);
     for (let i = 0; i < bands; i++) {
       setRGB(r, mix(p.top, p.bottom, Math.pow(i / (bands - 1), 1.2)));
       r.fillRect(0, i * bh, W, bh + 1);
     }
+    // ---- estrelas
     if (p.stars > 0.02) {
       for (const s of this.stars) {
         const tw = 0.55 + 0.45 * Math.sin(this.time * 2 + s.p);
@@ -81,8 +85,10 @@ export class Background extends me.Renderable {
       }
       r.setGlobalAlpha(1);
     }
+    // ---- sol e lua
     if (p.sunA > 0.02) this.disc(r, 700, p.sunY, 58, [255, 236, 170], [255, 160, 70], p.sunA);
     if (p.moonA > 0.02) this.disc(r, 250, p.moonY, 38, [240, 244, 255], [170, 190, 255], p.moonA);
+    // ---- nuvens (dia)
     const dayK = 1 - p.stars;
     if (dayK > 0.05) {
       r.setColor("#ffffff");
@@ -96,14 +102,18 @@ export class Background extends me.Renderable {
       r.setGlobalAlpha(1);
     }
     if (this.city) {
+      // ---- cidade da fase (3 camadas com parallax)
       this.city.draw(r, this.scroll, p);
       this.ground(r);
       this.city.ground(r, this.scroll, this.time, p);
       return;
     }
+    // ---- prédios (parallax em 2 camadas)
     this.skyline(r, this.far, 0.1, p.far, false);
     this.skyline(r, this.near, 0.3, p.near, true);
+    // ---- postes de luz
     this.lamps(r);
+    // ---- chão
     this.ground(r);
   }
 
@@ -130,9 +140,11 @@ export class Background extends me.Renderable {
         setRGB(r, color);
         r.fillRect(x, top, b.w, b.h + 12);
         if (b.antenna) r.fillRect(x + b.w / 2 - 1, top - 22, 3, 22);
+        // topo mais claro
         setRGB(r, color, 1, 1.18);
         r.fillRect(x, top, b.w, 4);
         if (!detailed) continue;
+        // janelas apagadas (uma cor) e acesas
         setRGB(r, color, 1, 0.78);
         for (let c = 0; c < b.cols; c++)
           for (let rw = 0; rw < b.rows; rw++) r.fillRect(x + 8 + c * 16, top + 14 + rw * 22, 9, 12);
@@ -179,22 +191,28 @@ export class Background extends me.Renderable {
 
   ground(r) {
     const p = this.pal;
+    // faixa de calçada (onde o skate anda)
     setRGB(r, p.ground, 1, 1.25);
     r.fillRect(0, GROUND_Y, W, 12);
     setRGB(r, p.ground, 1, 1.05);
     r.fillRect(0, GROUND_Y + 12, W, 34);
+    // juntas da calçada = sensação de velocidade
     setRGB(r, p.ground, 1, 0.8);
     const seam = 96;
     const so = this.scroll % seam;
     for (let x = -so; x < W; x += seam) r.fillRect(x, GROUND_Y + 12, 3, 34);
+    // meio-fio
     setRGB(r, p.line2, 1, 0.9);
     r.fillRect(0, GROUND_Y + 46, W, 5);
+    // rua
     setRGB(r, p.ground, 1, 0.62);
     r.fillRect(0, GROUND_Y + 51, W, H - GROUND_Y - 51);
+    // faixas da rua
     setRGB(r, p.line2, 0.85);
     const dash = 150;
     const d = this.scroll % dash;
     for (let x = -d; x < W; x += dash) r.fillRect(x, GROUND_Y + 80, 80, 7);
+    // brilho do asfalto à noite
     if (p.lit > 0.05) {
       r.setColor("#6fe3ff");
       r.setGlobalAlpha(0.05 * p.lit);

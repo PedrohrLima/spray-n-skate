@@ -6,6 +6,15 @@ import { onMenuKeys, onCanvasPointer } from "../game/menuinput.js";
 import { renderLetter, WARM, SUN, COOL } from "../game/logo.js";
 import { drawPerson, drawBoard, drawCar, drawHeli, drawBeam, drawSparkle, poly, HERO, COP, COP2 } from "../game/actors.js";
 
+/**
+ * CUTSCENE de abertura (a mesma para todas as fases e para o Arcade), sem texto — a ação conta a história:
+ *  o pichador chega de skate, chuta o skate para longe, sacode a lata e picha o muro → admira a obra →
+ *  sirenes ao longe → a viatura freia, o helicóptero acende o holofote, os policiais saltam do carro →
+ *  ele larga a lata, corre até o skate e foge com a polícia na cola.
+ * Tudo é desenhado por código (nada de imagens): cenário pré-renderizado em canvas, câmera de cinema
+ * (travelling, zoom e tremida), personagens com membros por cinemática inversa.
+ * Dá para pular com ESPAÇO / ENTER / ESC ou clicando.
+ */
 const FONT = '"Bungee", Impact, "Arial Black", sans-serif';
 const clamp = (v, a = 0, b = 1) => Math.max(a, Math.min(b, v));
 const lerp = (a, b, t) => a + (b - a) * t;
@@ -27,24 +36,25 @@ const mk = (w, h) => {
   return c;
 };
 
+// ---- mundo (coordenadas do "set de filmagem")
 const WX0 = -420;
 const WX1 = 2300;
-const GY = 422; 
-const ROAD_Y = 474; 
+const GY = 422; // chão da calçada (pés dos personagens)
+const ROAD_Y = 474; // chão da rua (rodas dos carros)
 const WALL_TOP = 150;
 const WALL_BOT = 410;
-const HS = 1.6; 
-const CS = 1.5; 
-const NOZ = 38; 
+const HS = 1.6; // escala do pichador
+const CS = 1.5; // escala dos policiais
+const NOZ = 38; // distância do corpo ao bico da lata quando picha
 const TAG_BASE = 345;
 const TAG_SIZE = 112;
 const TAG_CX = 520;
-const BOARD_X = 800; 
+const BOARD_X = 800; // onde o skate vai parar
 const CAR_STOP = 270;
-const BAR_T = 50; 
+const BAR_T = 50; // tarjas de cinema
 const BAR_B = 56;
 
-
+// ---- linha do tempo (segundos)
 const T = {
   in0: 0.15, hop: 1.2, shake0: 1.75, paint0: 2.7, paint1: 6.0, admire1: 6.95,
   siren0: 6.55, alert: 7.05, car0: 7.15, car1: 7.95, heli0: 7.2, door: 8.1,
@@ -52,6 +62,9 @@ const T = {
 };
 const SCHEMES = [SUN, WARM, COOL, WARM, SUN];
 
+// =====================================================================================
+//  cenário
+// =====================================================================================
 function buildSky() {
   const cv = mk(W, 340);
   const g = cv.getContext("2d");
@@ -85,6 +98,7 @@ function buildSky() {
   g.arc(782, 82, 6, 0, Math.PI * 2);
   g.arc(800, 98, 4, 0, Math.PI * 2);
   g.fill();
+  // nuvens
   for (let i = 0; i < 7; i++) {
     g.fillStyle = `rgba(255,170,170,${0.1 + rnd() * 0.1})`;
     g.beginPath();
@@ -94,6 +108,7 @@ function buildSky() {
   return cv;
 }
 
+/** prédios distantes (kind 1 = bem longe e claro · 2 = mais perto, escuro e com janelas acesas) */
 function buildSkyline(kind) {
   const w = 2700;
   const cv = mk(w, 380);
@@ -121,12 +136,14 @@ function buildSkyline(kind) {
   return cv;
 }
 
+/** o "set": muro de tijolos, lâmpadas, calçada, rua molhada, caçamba, escada de incêndio... em coordenadas do mundo */
 function buildWorld(a, b) {
   const cv = mk(b - a, H);
   const g = cv.getContext("2d");
   g.translate(-a, 0);
   const wallH = WALL_BOT - WALL_TOP;
 
+  // ---- muro (tijolos azulados, para o vermelho do pichador e as cores da tag saltarem)
   g.fillStyle = "#222a45";
   g.fillRect(a, WALL_TOP, b - a, wallH);
   const bricks = ["#3f4a6e", "#384264", "#47527a", "#343d5c", "#3d4768"];
@@ -141,6 +158,7 @@ function buildWorld(a, b) {
       g.fillRect(x + 1, y + 12, 46, 2);
     }
   }
+  // manchas e reboco caindo
   for (let i = 0; i < 40; i++) {
     const px = hash(i, 3) * 2700 - 500;
     if (px < a - 90 || px > b + 90) continue;
@@ -149,6 +167,7 @@ function buildWorld(a, b) {
     g.ellipse(px, WALL_TOP + 20 + hash(i, 5) * (wallH - 40), 30 + hash(i, 7) * 80, 12 + hash(i, 11) * 34, 0, 0, Math.PI * 2);
     g.fill();
   }
+  // trecho "apagado" (a tela em branco do pichador): tinta escura passada por cima
   const px0 = 262;
   const px1 = 780;
   const py0 = 204;
@@ -159,10 +178,11 @@ function buildWorld(a, b) {
   g.fillRect(px0 + 6, py0 + 4, px1 - px0 - 40, py1 - py0 - 12);
   for (let x = px0 + 14; x < px1 - 8; x += 26) {
     g.fillStyle = "rgba(255,255,255,0.025)";
-    g.fillRect(x, py0 + 3, 9, py1 - py0 - 6); 
+    g.fillRect(x, py0 + 3, 9, py1 - py0 - 6); // marcas do rolo
   }
   g.fillStyle = "rgba(0,0,0,0.35)";
   g.fillRect(px0, py1 - 3, px1 - px0, 3);
+  // cartazes velhos e janelas
   const poster = (x, y, c) => {
     g.fillStyle = "rgba(0,0,0,0.3)";
     g.fillRect(x + 3, y + 3, 54, 76);
@@ -191,6 +211,7 @@ function buildWorld(a, b) {
   win(1700, 200, true);
   win(2200, 198, false);
 
+  // ---- escada de incêndio (à direita)
   g.strokeStyle = "#0d0b18";
   g.fillStyle = "#0d0b18";
   g.lineWidth = 4;
@@ -212,6 +233,8 @@ function buildWorld(a, b) {
   g.lineTo(1350, 316);
   g.stroke();
   g.fillRect(1366, 176, 6, 236);
+
+  // ---- calha de água
   g.fillStyle = "#12101f";
   g.fillRect(846, WALL_TOP, 15, wallH);
   g.fillStyle = "rgba(255,255,255,0.14)";
@@ -221,6 +244,7 @@ function buildWorld(a, b) {
     g.fillRect(843, by, 21, 6);
   }
 
+  // ---- luz da noite + coroamento do muro
   g.fillStyle = "rgba(25,30,90,0.18)";
   g.fillRect(a, WALL_TOP, b - a, wallH);
   const shade = g.createLinearGradient(0, WALL_TOP, 0, WALL_TOP + 70);
@@ -233,6 +257,7 @@ function buildWorld(a, b) {
   g.fillStyle = "rgba(255,255,255,0.2)";
   g.fillRect(a, WALL_TOP - 10, b - a, 2);
 
+  // ---- postes de luz (lâmpadas na parede) com poças de luz quente
   const lamps = [170, 905, 1420, 1960, -300];
   for (const lx of lamps) {
     const pool = g.createRadialGradient(lx, WALL_TOP + 46, 8, lx, WALL_TOP + 90, 300);
@@ -251,6 +276,7 @@ function buildWorld(a, b) {
     g.fillRect(lx - 17, WALL_TOP + 10, 34, 5);
   }
 
+  // ---- calçada, meio-fio, rua molhada
   g.fillStyle = "#57577a";
   g.fillRect(a, WALL_BOT, b - a, 46);
   g.fillStyle = "rgba(0,0,0,0.26)";
@@ -259,7 +285,7 @@ function buildWorld(a, b) {
     g.fillStyle = "rgba(0,0,0,0.25)";
     g.fillRect(x, WALL_BOT + 8, 2, 38);
     if (hash(x, 1) < 0.4) {
-      g.fillRect(x + 30, WALL_BOT + 14, 14, 2); 
+      g.fillRect(x + 30, WALL_BOT + 14, 14, 2); // rachaduras
       g.fillRect(x + 42, WALL_BOT + 16, 2, 10);
     }
   }
@@ -280,6 +306,7 @@ function buildWorld(a, b) {
     g.fillStyle = "rgba(255,255,255,0.35)";
     g.fillRect(x + 20, 524, 64, 5);
   }
+  // poças que refletem as luzes
   for (let i = 0; i < 9; i++) {
     const cx = -380 + i * 260 + hash(i, 2) * 80;
     g.fillStyle = "rgba(60,64,130,0.55)";
@@ -289,6 +316,7 @@ function buildWorld(a, b) {
     g.fillStyle = "rgba(255,255,255,0.12)";
     g.fillRect(cx - 40, 491, 50, 2);
   }
+  // bueiro
   g.fillStyle = "#0b0a18";
   g.beginPath();
   g.ellipse(640, 508, 42, 7, 0, 0, Math.PI * 2);
@@ -298,6 +326,7 @@ function buildWorld(a, b) {
   g.ellipse(640, 506, 38, 5, 0, 0, Math.PI * 2);
   g.fill();
 
+  // ---- caçamba + sacos de lixo (à esquerda do muro)
   const dx = -40;
   g.fillStyle = "rgba(0,0,0,0.35)";
   g.beginPath();
@@ -336,6 +365,7 @@ function buildVignette() {
   return cv;
 }
 
+/** luz da sirene pré-renderizada (um único desenho por quadro em vez de vários retângulos translúcidos) */
 function buildWash(rgb, w, h, a) {
   const cv = mk(w, h);
   const g = cv.getContext("2d");
@@ -358,6 +388,7 @@ function buildSweep(rgb) {
   return cv;
 }
 
+/** corta a letra em faixas verticais (a tinta "revela" faixa por faixa) + silhueta branca para o brilho */
 function sliceLetter(l, n = 14) {
   const sw = Math.ceil(l.w / n);
   const strips = [];
@@ -376,6 +407,7 @@ function sliceLetter(l, n = 14) {
 }
 
 let ASSETS = null;
+/** tudo que é caro de desenhar (canvases do cenário e das letras) é criado só na primeira vez */
 function assets() {
   if (!ASSETS) {
     ASSETS = {
@@ -395,6 +427,9 @@ function assets() {
   return ASSETS;
 }
 
+// =====================================================================================
+//  a cena
+// =====================================================================================
 class CutsceneView extends me.Renderable {
   constructor(scene) {
     super(0, 0, W, H);
@@ -402,6 +437,7 @@ class CutsceneView extends me.Renderable {
     this.floating = true;
     this.alwaysUpdate = true;
     this.scene = scene;
+    // o cenário é pré-renderizado uma única vez e reaproveitado nas próximas aberturas da cutscene
     const A = assets();
     this.sky = A.sky;
     this.far = A.far;
@@ -411,7 +447,7 @@ class CutsceneView extends me.Renderable {
     this.sweep = A.sweep;
     this.chunks = A.chunks;
     this.t = 0;
-    this.paused = false; 
+    this.paused = false; // só para testes: window.__cut.seek(segundos) avança a cena em passos fixos e pausa
     this.flags = {};
     this.parts = [];
     this.shake = 0;
@@ -424,6 +460,7 @@ class CutsceneView extends me.Renderable {
     ];
     this.cam = { cx: 330, cy: 288, z: 1 };
     this.buildTag();
+    // posições-chave do pichador (dependem do tamanho da tag)
     this.xPaint0 = this.nozzleX(T.paint0) - NOZ;
     this.xEnd = this.nozzleX(T.paint1) - NOZ;
     this.xAdm = this.xEnd - 62;
